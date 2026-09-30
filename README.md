@@ -14,6 +14,15 @@ make up          # builds the image and starts Postgres + app on http://localhos
 For a real deployment, copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`.
 `docker compose down -v` wipes the database.
 
+## Deploy
+
+`make build` tags the image `ghcr.io/marco-debortoli/ops-tasks:${IMAGE_TAG:-latest}`; push it with
+`docker push`. The server only needs `docker-compose.yml` and `.env` (with `IMAGE_TAG`), then:
+
+```bash
+docker compose pull app && docker compose up -d
+```
+
 ## Develop
 
 ```bash

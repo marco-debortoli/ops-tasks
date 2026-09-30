@@ -14,10 +14,13 @@ CREATE TABLE projects (
     due_date    DATE,
     notes       TEXT NOT NULL DEFAULT '',
     pinned      BOOLEAN NOT NULL DEFAULT false,
+    -- An archived project is hidden from the dashboard, along with its open tasks.
+    archived_at TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     -- Pinning needs a category, and a completed project can't stay pinned.
-    CHECK (NOT pinned OR (category_id IS NOT NULL AND status <> 'complete'))
+    CHECK (NOT pinned OR (category_id IS NOT NULL AND status <> 'complete')),
+    CONSTRAINT projects_archived_not_pinned CHECK (NOT pinned OR archived_at IS NULL)
 );
 
 -- One pinned project per category.

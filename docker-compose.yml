@@ -18,6 +18,7 @@ services:
       retries: 10
 
   app:
+    image: ghcr.io/marco-debortoli/ops-tasks:${IMAGE_TAG:-latest}
     build: .
     restart: unless-stopped
     environment:
