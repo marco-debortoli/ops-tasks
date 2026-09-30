@@ -1,8 +1,9 @@
 # ops · tasks
 
 A single-user task manager with a terminal / ops look. SvelteKit (static SPA, Tailwind) on
-the front, Go + Postgres behind it. Design decisions live in
-[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
+the front, Go + Postgres behind it.
+
+![Dashboard](docs/screenshot.png)
 
 ## Run it
 
@@ -10,7 +11,7 @@ the front, Go + Postgres behind it. Design decisions live in
 make up          # builds the image and starts Postgres + app on http://localhost:8080
 ```
 
-Set `POSTGRES_PASSWORD` (and optionally `APP_PORT`) in a `.env` file for a real deployment.
+For a real deployment, copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`.
 `docker compose down -v` wipes the database.
 
 ## Develop

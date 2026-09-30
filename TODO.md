@@ -1,7 +1,7 @@
 # TODO
 
-Remaining work, based on [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) and the Terminal / ops
-boards in the Task Manager Theme Explorations design canvas.
+Remaining work, based on the Terminal / ops boards in the Task Manager Theme Explorations
+design canvas.
 
 ## MVP: next pass
 
