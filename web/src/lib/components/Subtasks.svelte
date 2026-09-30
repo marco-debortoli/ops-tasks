@@ -62,12 +62,58 @@
 		save(() => api.deleteSubtask(s.id));
 	}
 
-	function move(i: number, by: number) {
-		const j = i + by;
-		if (j < 0 || j >= items.length) return;
-		[items[i], items[j]] = [items[j], items[i]];
+	function moveTo(from: number, to: number) {
+		if (from === to || to < 0 || to >= items.length) return;
+		const [s] = items.splice(from, 1);
+		items.splice(to, 0, s);
 		const ids = items.map((s) => s.id);
 		save(() => api.reorderSubtasks(taskId, ids));
+	}
+
+	// Drag to reorder, with pointer events so mouse and touch share one path. Rows stay put in
+	// `items` while dragging: the dragged row follows the pointer and the rows it passes shift
+	// over by its height, then the order is committed on release.
+	let rows = $state<HTMLElement[]>([]);
+	let drag = $state<{ from: number; to: number; dy: number; height: number } | null>(null);
+	/** Row midpoints at drag start; rows don't move in layout while dragging, only by transform. */
+	let mids: number[] = [];
+	let startY = 0;
+
+	function dragStart(e: PointerEvent, i: number) {
+		if (e.button !== 0 || editing !== null) return;
+		e.preventDefault();
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+		mids = rows.slice(0, items.length).map((r) => {
+			const b = r.getBoundingClientRect();
+			return b.top + b.height / 2;
+		});
+		startY = e.clientY;
+		drag = { from: i, to: i, dy: 0, height: rows[i].getBoundingClientRect().height };
+	}
+
+	function dragMove(e: PointerEvent) {
+		if (!drag) return;
+		drag.dy = e.clientY - startY;
+		const y = mids[drag.from] + drag.dy;
+		// New index = how many of the other rows now sit above the dragged row's centre.
+		drag.to = mids.filter((m, j) => j !== drag!.from && m < y).length;
+	}
+
+	function dragEnd() {
+		if (!drag) return;
+		const { from, to } = drag;
+		drag = null;
+		moveTo(from, to);
+	}
+
+	/** Vertical offset for row `i` while a drag is in progress. */
+	function shift(i: number): number {
+		if (!drag) return 0;
+		const { from, to, dy, height } = drag;
+		if (i === from) return dy;
+		if (from < to && i > from && i <= to) return -height;
+		if (to < from && i >= to && i < from) return height;
+		return 0;
 	}
 </script>
 
@@ -79,9 +125,32 @@
 
 	{#each items as s, i (s.id)}
 		<div
-			class="group flex min-h-[34px] items-center max-sm:min-h-11 gap-2.5 border-b border-line-soft px-1.5 hover:bg-hover focus-within:bg-hover"
+			bind:this={rows[i]}
+			class="group relative flex min-h-[34px] items-center gap-2.5 border-b border-line-soft pr-1.5 max-sm:min-h-11 {drag?.from ===
+			i
+				? 'z-10 border-line-strong bg-raised shadow-[0_4px_12px_rgb(0_0_0/0.5)]'
+				: drag
+					? 'transition-transform duration-150'
+					: 'hover:bg-hover focus-within:bg-hover'}"
+			style:transform={drag ? `translateY(${shift(i)}px)` : undefined}
 		>
-			<div class="max-sm:-mx-3">
+			<!-- Drag handle. A button so touch targeting prefers it over the checkbox beside it; the ↑/↓
+			     buttons are the keyboard route, so it stays out of the tab order. -->
+			<button
+				type="button"
+				tabindex="-1"
+				aria-hidden="true"
+				title="drag to reorder"
+				class="-mr-2.5 flex w-4 shrink-0 cursor-grab touch-none items-center justify-center self-stretch text-faint select-none hover:text-soft max-sm:mr-0 max-sm:w-8 {drag?.from ===
+				i
+					? 'cursor-grabbing text-soft'
+					: ''}"
+				onpointerdown={(e) => dragStart(e, i)}
+				onpointermove={dragMove}
+				onpointerup={dragEnd}
+				onpointercancel={() => (drag = null)}>⠿</button
+			>
+			<div class="max-sm:-mr-3">
 				<Checkbox touch={phone.current} checked={s.done} label="Toggle {s.name}" onclick={() => toggle(s)} />
 			</div>
 			{#if editing === s.id}
@@ -114,14 +183,14 @@
 						class="btn-sm"
 						aria-label="Move {s.name} up"
 						disabled={i === 0}
-						onclick={() => move(i, -1)}>↑</button
+						onclick={() => moveTo(i, i - 1)}>↑</button
 					>
 					<button
 						type="button"
 						class="btn-sm"
 						aria-label="Move {s.name} down"
 						disabled={i === items.length - 1}
-						onclick={() => move(i, 1)}>↓</button
+						onclick={() => moveTo(i, i + 1)}>↓</button
 					>
 					<button type="button" class="btn-sm" onclick={() => startEdit(s)}>edit</button>
 					<button type="button" class="btn-sm btn-danger" onclick={() => remove(s)}>del</button>

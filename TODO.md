@@ -18,15 +18,13 @@ boards in the Task Manager Theme Explorations design canvas.
       every project stays reachable; the header has history and categories icons.
 - [x] Modals as bottom sheets below `sm` (`OpsMobileTask` board): drag the handle down
       to close; the task sheet has its own single-column layout.
-- [ ] iOS Safari zooms into inputs under 16px on focus (ours are 13px). Either
-      `maximum-scale=1` in the viewport meta or 16px inputs on phones.
 
 ## MVP: gaps in what's built
 
-- [ ] Markdown preview for task descriptions (currently edit-only; sanitise the rendered HTML).
-- [ ] A way to add a task straight to the queue (right now only via the Today input,
+- [x] Markdown preview for task descriptions (currently edit-only; sanitise the rendered HTML).
+- [x] A way to add a task straight to the queue (right now only via the Today input,
       then editing it, or from a project's modal).
-- [ ] Drag-to-reorder subtasks (↑/↓ buttons exist).
+- [x] Drag-to-reorder subtasks (↑/↓ buttons exist).
 
 ## Phase 2 (in the mockups, not in the MVP)
 
@@ -43,7 +41,7 @@ boards in the Task Manager Theme Explorations design canvas.
 
 ## Housekeeping
 
-- [ ] `git init` and first commit.
+- [x] `git init` and first commit.
 - [ ] Integration tests for the store against a real Postgres (currently only pure-logic
       unit tests plus a manual API smoke script).
 - [ ] Frontend tests (none yet).

@@ -38,6 +38,18 @@
 			: queue.filter((t) => (filter === 'none' ? t.effective_category_id == null : t.effective_category_id === filter))
 	);
 
+	let draft = $state('');
+	const filterCategory = $derived(typeof filter === 'number' ? app.dash!.categories.find((c) => c.id === filter) : undefined);
+
+	/** Add an unscheduled task, in the filtered category if one is selected so it stays in view. */
+	async function add(e: SubmitEvent) {
+		e.preventDefault();
+		const name = draft.trim();
+		if (!name) return;
+		draft = '';
+		await act(() => api.createTask({ name, category_id: filterCategory?.id ?? null })).catch(() => (draft = name));
+	}
+
 	const soon = $derived(addDays(today(), 7));
 	const cols = 'grid-cols-[18px_44px_24px_minmax(0,1fr)_170px_44px_44px_34px]';
 </script>
@@ -70,6 +82,22 @@
 			>
 		{/each}
 	</div>
+
+	<form
+		onsubmit={add}
+		class="mb-1.5 flex shrink-0 items-center gap-2 rounded-[3px] border border-dashed border-line-strong bg-raised px-2.5 {compact
+			? 'h-11'
+			: 'h-8'}"
+	>
+		<span class="text-green" aria-hidden="true">+</span>
+		<input
+			bind:value={draft}
+			aria-label="Add a task to the queue"
+			placeholder="add to queue{filterCategory ? ` in ${filterCategory.name}/` : ''}{compact ? '' : ', enter to save'}"
+			enterkeyhint="done"
+			class="min-w-0 grow bg-transparent text-bright outline-none {compact ? 'text-[13px]' : ''}"
+		/>
+	</form>
 
 	{#if compact}
 		{#each shown as t, i (t.id)}

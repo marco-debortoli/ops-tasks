@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { api } from '$lib/api';
 	import { autosave } from '$lib/autosave.svelte';
 	import { clock, dateIn, short, taskNumber } from '$lib/format';
+	import { renderMarkdown } from '$lib/markdown';
 	import { phone } from '$lib/media.svelte';
 	import {
 		app,
@@ -27,6 +28,8 @@
 	let name = $state('');
 	let description = $state('');
 	let confirmDelete = $state(false);
+	/** Show the description rendered, or the textarea. Starts on preview when there's something to show. */
+	let previewing = $state(false);
 
 	const saver = autosave<TaskPatch>(async (patch) => {
 		task = await api.updateTask(id, patch);
@@ -39,6 +42,7 @@
 			if (!task) {
 				name = t.name;
 				description = t.description;
+				previewing = !!t.description.trim();
 			}
 			task = t;
 			projects = ps;
@@ -81,6 +85,12 @@
 	async function remove() {
 		await run(() => api.deleteTask(id));
 		if (!saver.status.error) onclose();
+	}
+
+	async function editDescription() {
+		previewing = false;
+		await tick();
+		document.getElementById(`task-desc-${id}`)?.focus();
 	}
 
 	const priorities: { value: Priority | null; label: string; on: string }[] = [
@@ -268,15 +278,52 @@
 
 {#snippet descriptionField(rows: number)}
 	<div class="flex flex-col gap-1.5">
-		<label for="task-desc-{id}" class="label">description <span class="text-faint">· markdown</span></label>
-		<textarea
-			id="task-desc-{id}"
-			bind:value={description}
-			{rows}
-			class="field h-auto resize-y py-2 leading-relaxed text-text"
-			oninput={() => saver.queue({ description })}
-			onblur={saver.flush}
-		></textarea>
+		<div class="flex items-center justify-between">
+			<label for="task-desc-{id}" class="label">description <span class="text-faint">· markdown</span></label>
+			<div class="flex" role="group" aria-label="Description view">
+				<button
+					type="button"
+					aria-pressed={!previewing}
+					class="btn-sm rounded-r-none {previewing ? '' : 'border-line-strong bg-line text-bright'}"
+					onclick={editDescription}>edit</button
+				>
+				<button
+					type="button"
+					aria-pressed={previewing}
+					class="btn-sm -ml-px rounded-l-none {previewing ? 'border-line-strong bg-line text-bright' : ''}"
+					onclick={() => {
+						saver.flush();
+						previewing = true;
+					}}>preview</button
+				>
+			</div>
+		</div>
+		{#if previewing}
+			<!-- Clicking the text (but not a link in it) switches to editing; the edit button is the keyboard route. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<div
+				class="md cursor-text rounded-[3px] border border-line-soft px-2.5 py-2 leading-relaxed"
+				style:min-height="{rows * 1.625 + 1.25}em"
+				onclick={(e) => {
+					if (!(e.target as Element).closest('a')) editDescription();
+				}}
+			>
+				{#if description.trim()}
+					{@html renderMarkdown(description)}
+				{:else}
+					<p class="text-dim">no description. click to write one.</p>
+				{/if}
+			</div>
+		{:else}
+			<textarea
+				id="task-desc-{id}"
+				bind:value={description}
+				{rows}
+				class="field h-auto resize-y py-2 leading-relaxed text-text"
+				oninput={() => saver.queue({ description })}
+				onblur={saver.flush}
+			></textarea>
+		{/if}
 	</div>
 {/snippet}
 
