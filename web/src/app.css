@@ -1,0 +1,129 @@
+@import 'tailwindcss';
+
+/* Terminal / ops palette: phosphor green and amber on near-black. */
+/* static: some tokens are only referenced from inline styles, so emit them all. */
+@theme static {
+	--font-mono: 'JetBrains Mono', ui-monospace, monospace;
+	--font-sans: var(--font-mono);
+
+	--color-void: #070908; /* behind modals */
+	--color-bg: #0c100f; /* app */
+	--color-modal: #0c100f;
+	--color-side: #0e1312; /* modal side column */
+	--color-raised: #121816; /* header, inputs, cards */
+	--color-hover: #141b19;
+	--color-line: #2a3531;
+	--color-line-soft: #1e2724;
+	--color-line-strong: #3c4a45;
+
+	--color-bright: #eef3f0;
+	--color-text: #d3dcd7;
+	--color-soft: #a7b4ae;
+	--color-muted: #85938d;
+	--color-dim: #74827c;
+	--color-faint: #5e6b66;
+
+	--color-green: #8fd694;
+	--color-green-deep: #1f3b26;
+	--color-green-check: #2f4a33;
+	--color-green-edge: #5e8a62;
+	--color-amber: #edb35b;
+	--color-amber-deep: #1d1a12;
+	--color-amber-edge: #4a3f24;
+	--color-red: #ef7a6d;
+	--color-red-deep: #3a1f1c;
+	--color-red-edge: #5a2e29;
+	--color-blue: #86b8e3;
+
+	--color-heat-0: #161e1b;
+	--color-heat-1: #1f3b26;
+	--color-heat-2: #2e5a36;
+	--color-heat-3: #4c8a52;
+	--color-heat-4: #8fd694;
+
+	--text-xs: 11px;
+	--text-sm: 12px;
+	--text-base: 12.5px;
+}
+
+@layer base {
+	html,
+	body {
+		background: var(--color-bg);
+		color: var(--color-text);
+		font-family: var(--font-mono);
+		font-size: var(--text-base);
+		color-scheme: dark;
+	}
+
+	input::placeholder,
+	textarea::placeholder {
+		color: var(--color-dim);
+		opacity: 1;
+	}
+
+	:focus-visible {
+		outline: 1px solid var(--color-amber);
+		outline-offset: 1px;
+	}
+
+	button:not(:disabled) {
+		cursor: pointer;
+	}
+
+	dialog::backdrop {
+		background: rgb(7 9 8 / 0.78);
+	}
+}
+
+@layer components {
+	/* A bordered panel whose title sits inset in the top border. */
+	.panel {
+		@apply relative rounded-[3px] border border-line px-3 pt-4 pb-2.5;
+	}
+	.panel-title {
+		@apply absolute -top-[9px] left-2.5 m-0 bg-bg px-1.5 text-base font-bold text-green;
+	}
+
+	/* Phone: 44px touch targets. */
+	.field {
+		@apply h-[30px] rounded-[3px] border border-line bg-raised px-2.5 text-bright outline-none focus:border-line-strong max-sm:h-11 max-sm:text-[13px];
+	}
+	.label {
+		@apply text-xs text-dim;
+	}
+	.btn {
+		@apply inline-flex h-8 items-center gap-2 rounded-[3px] border border-line bg-transparent px-3 text-sm text-text hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-11;
+	}
+	.btn-sm {
+		@apply inline-flex h-6 items-center rounded-[3px] border border-line bg-transparent px-2 text-xs text-soft hover:border-line-strong hover:text-bright max-sm:h-8;
+	}
+	.btn-danger {
+		@apply border-red-edge text-red hover:border-red;
+	}
+	.btn-primary {
+		@apply border-green bg-green font-bold text-bg hover:brightness-110;
+	}
+	.key {
+		@apply text-amber;
+	}
+}
+
+/* Thin, dim scrollbars in keeping with the terminal look. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--color-line) transparent;
+}
+
+/* Phone: modals slide up as bottom sheets (layout in Modal.svelte). */
+@media (max-width: 639.98px) and (prefers-reduced-motion: no-preference) {
+	dialog.sheet[open] {
+		animation: sheet-in 180ms ease-out;
+	}
+}
+@keyframes sheet-in {
+	from {
+		translate: 0 40%;
+		opacity: 0.4;
+	}
+}
