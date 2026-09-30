@@ -31,20 +31,17 @@ boards in the Task Manager Theme Explorations design canvas.
 - [ ] ⌘K command palette.
 - [ ] Quick-add syntax: `p1 @project #category ^date !date`.
 - [ ] Activity logs on tasks and projects.
-- [ ] Next-7-days strip on the dashboard.
-- [ ] Up/down changes on stats (vs previous week/month/year).
+- [x] Next-7-days strip on the dashboard (desktop only; hover a day for its tasks).
+- [x] Up/down changes on stats (vs the same point in the previous week/month/year).
 - [ ] Keyboard shortcuts beyond `esc` and `enter` (`x` complete, `s` reschedule, `1-3`
       priority, `t` add, `/` filter, `j/k` move, `h` history, `?` help).
 - [ ] Duplicate task.
-- [ ] Archive project.
-- [ ] Project completion chart (completions over the last 6 weeks, pace, on-track estimate).
+- [x] Archive project, plus an archive view in the projects panel (archived and completed).
+- [x] Project completion chart (completions over the last 6 weeks, pace, on-track estimate).
 
 ## Housekeeping
 
 - [x] `git init` and first commit.
-- [ ] Integration tests for the store against a real Postgres (currently only pure-logic
-      unit tests plus a manual API smoke script).
-- [ ] Frontend tests (none yet).
 - [ ] Wipe the demo data before real use: `docker compose down -v`.
 - [ ] Set a real `POSTGRES_PASSWORD` in `.env` for the homelab deployment.
 - [ ] Database backups for the homelab (e.g. scheduled `pg_dump`).

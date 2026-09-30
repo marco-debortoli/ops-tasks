@@ -64,7 +64,9 @@ export const api = {
 	reorderSubtasks: (taskId: number, ids: number[]) =>
 		request<Subtask[]>('PUT', `/tasks/${taskId}/subtasks/order`, { ids }),
 
-	listProjects: (all = false) => request<Project[]>('GET', '/projects' + (all ? '?all=1' : '')),
+	/** `active`: unfinished and not archived; `closed`: archived or completed, latest first. */
+	listProjects: (view: 'active' | 'closed' = 'active') =>
+		request<Project[]>('GET', '/projects' + (view === 'closed' ? '?closed=1' : '')),
 	createProject: (input: ProjectPatch & { name: string }) =>
 		request<ProjectDetail>('POST', '/projects', input),
 	getProject: (id: number) => request<ProjectDetail>('GET', `/projects/${id}`),

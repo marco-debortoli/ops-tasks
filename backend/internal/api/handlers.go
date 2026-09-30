@@ -172,7 +172,15 @@ func (s *Server) deleteSubtask(r *http.Request) (any, error) {
 // projects
 
 func (s *Server) listProjects(r *http.Request) (any, error) {
-	return s.store.ListProjects(r.Context(), r.URL.Query().Get("all") == "1")
+	q := r.URL.Query()
+	f := store.ProjectsActive
+	switch {
+	case q.Get("closed") == "1":
+		f = store.ProjectsClosed
+	case q.Get("all") == "1":
+		f = store.ProjectsUnarchived
+	}
+	return s.store.ListProjects(r.Context(), f)
 }
 
 func (s *Server) createProject(r *http.Request) (any, error) {

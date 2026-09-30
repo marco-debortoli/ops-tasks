@@ -1,7 +1,13 @@
 <script lang="ts">
+	import { change } from '$lib/format';
 	import { app, category, openModal, today } from '$lib/state.svelte';
 
 	const stats = $derived(app.dash!.stats);
+	const counts = $derived([
+		{ n: stats.week, prev: stats.prev_week, label: 'week' },
+		{ n: stats.month, prev: stats.prev_month, label: 'month' },
+		{ n: stats.year, prev: stats.prev_year, label: 'year' }
+	]);
 
 	function level(n: number): number {
 		if (n <= 0) return 0;
@@ -31,10 +37,14 @@
 		stats <span class="font-normal text-muted">completed</span>
 	</h2>
 	<div class="grid grid-cols-3 gap-2">
-		{#each [{ n: stats.week, label: 'week' }, { n: stats.month, label: 'month' }, { n: stats.year, label: 'year' }] as s (s.label)}
-			<div>
+		{#each counts as s (s.label)}
+			{@const c = change(s.n, s.prev)}
+			<div title="{s.prev} by this point last {s.label}">
 				<div class="text-[26px] leading-[1.1] font-bold text-bright">{s.n}</div>
-				<div class="text-xs text-muted">{s.label}</div>
+				<div class="text-xs text-muted">
+					{s.label} <span style:color={c.color}>{c.text}</span>
+					<span class="sr-only">vs {s.prev} by this point last {s.label}</span>
+				</div>
 			</div>
 		{/each}
 	</div>

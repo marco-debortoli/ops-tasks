@@ -29,18 +29,19 @@ type TaskRef struct {
 }
 
 type Project struct {
-	ID         int64     `json:"id"`
-	Name       string    `json:"name"`
-	CategoryID *int64    `json:"category_id"`
-	Status     string    `json:"status"`
-	DueDate    *string   `json:"due_date"`
-	Notes      string    `json:"notes"`
-	Pinned     bool      `json:"pinned"`
-	OpenCount  int       `json:"open_count"`
-	DoneCount  int       `json:"done_count"`
-	NextTask   *TaskRef  `json:"next_task"` // highest-priority open task
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID         int64      `json:"id"`
+	Name       string     `json:"name"`
+	CategoryID *int64     `json:"category_id"`
+	Status     string     `json:"status"`
+	DueDate    *string    `json:"due_date"`
+	Notes      string     `json:"notes"`
+	Pinned     bool       `json:"pinned"`
+	ArchivedAt *time.Time `json:"archived_at"`
+	OpenCount  int        `json:"open_count"`
+	DoneCount  int        `json:"done_count"`
+	NextTask   *TaskRef   `json:"next_task"` // highest-priority open task
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
 type ProjectDetail struct {
@@ -56,10 +57,11 @@ type ProjectInput struct {
 	DueDate    Opt[string] `json:"due_date"`
 	Notes      Opt[string] `json:"notes"`
 	Pinned     Opt[bool]   `json:"pinned"`
+	Archived   Opt[bool]   `json:"archived"`
 }
 
 const projectSelect = `
-SELECT p.id, p.name, p.category_id, p.status, to_char(p.due_date, 'YYYY-MM-DD'), p.notes, p.pinned,
+SELECT p.id, p.name, p.category_id, p.status, to_char(p.due_date, 'YYYY-MM-DD'), p.notes, p.pinned, p.archived_at,
        COALESCE(c.open, 0), COALESCE(c.done, 0), n.id, n.name, n.priority, p.created_at, p.updated_at
 FROM projects p
 LEFT JOIN LATERAL (
@@ -79,7 +81,7 @@ func scanProject(row pgx.Row) (Project, error) {
 	var nextID *int64
 	var nextName *string
 	var nextPri *int
-	err := row.Scan(&p.ID, &p.Name, &p.CategoryID, &p.Status, &p.DueDate, &p.Notes, &p.Pinned,
+	err := row.Scan(&p.ID, &p.Name, &p.CategoryID, &p.Status, &p.DueDate, &p.Notes, &p.Pinned, &p.ArchivedAt,
 		&p.OpenCount, &p.DoneCount, &nextID, &nextName, &nextPri, &p.CreatedAt, &p.UpdatedAt)
 	if nextID != nil {
 		p.NextTask = &TaskRef{ID: *nextID, Name: *nextName, Priority: nextPri}
@@ -87,11 +89,27 @@ func scanProject(row pgx.Row) (Project, error) {
 	return p, err
 }
 
-// ListProjects returns unfinished projects, or all of them when includeComplete is set.
-func (s *Store) ListProjects(ctx context.Context, includeComplete bool) ([]Project, error) {
-	rows, err := s.pool.Query(ctx, projectSelect+`
-		WHERE $1 OR p.status <> 'complete'
-		ORDER BY p.due_date NULLS LAST, p.name`, includeComplete)
+// ProjectFilter picks which projects ListProjects returns.
+type ProjectFilter int
+
+const (
+	ProjectsActive     ProjectFilter = iota // unfinished and not archived
+	ProjectsUnarchived                      // active plus completed
+	ProjectsClosed                          // archived or completed, most recently closed first
+)
+
+func (s *Store) ListProjects(ctx context.Context, f ProjectFilter) ([]Project, error) {
+	var where string
+	switch f {
+	case ProjectsActive:
+		where = `WHERE p.archived_at IS NULL AND p.status <> 'complete' ORDER BY p.due_date NULLS LAST, p.name`
+	case ProjectsUnarchived:
+		where = `WHERE p.archived_at IS NULL ORDER BY p.due_date NULLS LAST, p.name`
+	case ProjectsClosed:
+		where = `WHERE p.archived_at IS NOT NULL OR p.status = 'complete'
+			ORDER BY COALESCE(p.archived_at, p.updated_at) DESC, p.name`
+	}
+	rows, err := s.pool.Query(ctx, projectSelect+where)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +171,7 @@ func (s *Store) CreateProject(ctx context.Context, in ProjectInput) (*ProjectDet
 
 // UpdateProject applies a partial update, enforcing the pinning rules:
 // one pinned project per category (pinning replaces the previous one), pinning needs
-// a category, and changing a pinned project's category or completing it unpins it.
+// a category, and changing a pinned project's category, completing it or archiving it unpins it.
 func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectInput) (*ProjectDetail, error) {
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		var (
@@ -161,11 +179,12 @@ func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectInput) (*
 			categoryID          *int64
 			due                 *string
 			pinned              bool
+			archivedAt          *time.Time
 		)
 		err := tx.QueryRow(ctx, `
-			SELECT name, category_id, status, to_char(due_date, 'YYYY-MM-DD'), notes, pinned
+			SELECT name, category_id, status, to_char(due_date, 'YYYY-MM-DD'), notes, pinned, archived_at
 			FROM projects WHERE id = $1 FOR UPDATE`, id).
-			Scan(&name, &categoryID, &status, &due, &notes, &pinned)
+			Scan(&name, &categoryID, &status, &due, &notes, &pinned, &archivedAt)
 		if err != nil {
 			return notFound(err)
 		}
@@ -196,6 +215,16 @@ func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectInput) (*
 			categoryID = in.CategoryID.Ptr()
 			pinned = false
 		}
+		if in.Archived.Set {
+			switch {
+			case !in.Archived.V:
+				archivedAt = nil
+			case archivedAt == nil:
+				now := time.Now()
+				archivedAt = &now
+				pinned = false
+			}
+		}
 		if in.Pinned.Set {
 			pinned = in.Pinned.Valid && in.Pinned.V
 			if pinned && categoryID == nil {
@@ -203,6 +232,9 @@ func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectInput) (*
 			}
 			if pinned && status == StatusComplete {
 				return invalid("a completed project can't be pinned")
+			}
+			if pinned && archivedAt != nil {
+				return invalid("an archived project can't be pinned")
 			}
 		}
 		if pinned {
@@ -213,8 +245,8 @@ func (s *Store) UpdateProject(ctx context.Context, id int64, in ProjectInput) (*
 		}
 		_, err = tx.Exec(ctx, `
 			UPDATE projects SET name = $2, category_id = $3, status = $4, due_date = $5::date, notes = $6,
-			       pinned = $7, updated_at = now()
-			WHERE id = $1`, id, name, categoryID, status, due, notes, pinned)
+			       pinned = $7, archived_at = $8, updated_at = now()
+			WHERE id = $1`, id, name, categoryID, status, due, notes, pinned, archivedAt)
 		return dbError(err)
 	})
 	if err != nil {

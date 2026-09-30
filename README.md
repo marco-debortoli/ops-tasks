@@ -46,5 +46,5 @@ make check       # go vet, go test, svelte-check
 | POST | `/api/tasks/{id}/subtasks` | |
 | PUT | `/api/tasks/{id}/subtasks/order` | `{"ids": [...]}` |
 | PATCH/DELETE | `/api/subtasks/{id}` | |
-| GET/POST | `/api/projects` | `?all=1` includes completed |
-| GET/PATCH/DELETE | `/api/projects/{id}` | delete keeps tasks as standalone |
+| GET/POST | `/api/projects` | active by default; `?all=1` adds completed, `?closed=1` lists archived and completed |
+| GET/PATCH/DELETE | `/api/projects/{id}` | delete keeps tasks as standalone; PATCH `archived: true` hides it and its open tasks |

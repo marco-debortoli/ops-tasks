@@ -112,3 +112,36 @@ func TestStreak(t *testing.T) {
 		}
 	}
 }
+
+func TestPreviousPeriods(t *testing.T) {
+	cases := []struct {
+		today             string
+		week, month, year [2]string
+	}{
+		{"2026-09-30", // Wednesday
+			[2]string{"2026-09-21", "2026-09-23"},
+			[2]string{"2026-08-01", "2026-08-30"},
+			[2]string{"2025-01-01", "2025-09-30"}},
+		{"2026-03-31", // last month is shorter
+			[2]string{"2026-03-23", "2026-03-24"},
+			[2]string{"2026-02-01", "2026-02-28"},
+			[2]string{"2025-01-01", "2025-03-31"}},
+		{"2028-02-29", // leap day; last year had none
+			[2]string{"2028-02-21", "2028-02-22"},
+			[2]string{"2028-01-01", "2028-01-29"},
+			[2]string{"2027-01-01", "2027-02-28"}},
+		{"2026-01-01", // across the year boundary
+			[2]string{"2025-12-22", "2025-12-25"},
+			[2]string{"2025-12-01", "2025-12-01"},
+			[2]string{"2025-01-01", "2025-01-01"}},
+	}
+	f := func(r DateRange) [2]string {
+		return [2]string{r.From.Format(time.DateOnly), r.To.Format(time.DateOnly)}
+	}
+	for _, c := range cases {
+		w, m, y := PreviousPeriods(date(c.today))
+		if f(w) != c.week || f(m) != c.month || f(y) != c.year {
+			t.Errorf("PreviousPeriods(%s) = %v %v %v, want %v %v %v", c.today, f(w), f(m), f(y), c.week, c.month, c.year)
+		}
+	}
+}

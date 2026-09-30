@@ -4,6 +4,7 @@
 	import { autosave } from '$lib/autosave.svelte';
 	import {
 		clock,
+		dateIn,
 		daysLeft,
 		percent,
 		progressBar,
@@ -19,6 +20,7 @@
 		timezone,
 		today
 	} from '$lib/state.svelte';
+	import { projectPace } from '$lib/pace';
 	import type { ProjectDetail, ProjectPatch, ProjectStatus, Task } from '$lib/types';
 	import Checkbox from './Checkbox.svelte';
 	import DateField from './DateField.svelte';
@@ -104,8 +106,21 @@
 	const pinnedRival = $derived(
 		app.dash?.projects.find((p) => p.pinned && p.category_id === cat?.id && p.id !== id)
 	);
+	const archived = $derived(!!project?.archived_at);
+	const pace = $derived(
+		project &&
+			projectPace(
+				project.completed_tasks.map((t) => t.completed_on!),
+				project.open_count,
+				today(),
+				project.due_date
+			)
+	);
+	const paceMax = $derived(Math.max(1, ...(pace?.weeks.map((w) => w.count) ?? [])));
+
 	const pinHint = $derived.by(() => {
 		if (!project) return '';
+		if (archived) return "an archived project can't be pinned";
 		if (project.pinned) return `pinned in ${cat?.name}; pinning another ${cat?.name} project replaces it`;
 		if (!cat) return 'give the project a category to pin it';
 		if (project.status === 'complete') return "a completed project can't be pinned";
@@ -118,11 +133,21 @@
 		<span class="font-bold text-green">project</span>
 		{#if cat}<span class="text-dim">{cat.name}/</span>{/if}
 		{#if project?.pinned}<span class="text-amber">◆ pinned</span>{/if}
+		{#if archived}<span class="text-muted">▣ archived</span>{/if}
 	</ModalHeader>
 
 	{#if loadError}
 		<p class="p-4 text-red">E: {loadError}</p>
 	{:else if project}
+		{#if archived}
+			<div class="flex items-center justify-between gap-3 border-b border-line-soft bg-raised px-[18px] py-2 text-xs text-muted">
+				<span
+					>archived {short(dateIn(project.archived_at!, timezone()))} · hidden from the dashboard, open tasks
+					included</span
+				>
+				<button type="button" class="btn-sm" onclick={() => saver.save({ archived: false })}>unarchive</button>
+			</div>
+		{/if}
 		<div
 			class="grid items-end gap-3.5 border-b border-line-soft px-[18px] pt-4 pb-3.5 sm:grid-cols-[minmax(0,1fr)_190px_190px]"
 		>
@@ -131,7 +156,7 @@
 				<input
 					id="proj-name-{id}"
 					bind:value={name}
-					class="field h-10 border-line-strong text-xl font-bold {name.trim() ? '' : 'border-red!'}"
+					class="field h-[40px] border-line-strong text-xl font-bold {name.trim() ? '' : 'border-red!'}"
 					oninput={() => name.trim() && saver.queue({ name })}
 					onkeydown={(e) => e.key === 'Enter' && saver.flush()}
 					onblur={saver.flush}
@@ -141,7 +166,7 @@
 				<label for="proj-cat-{id}" class="label">category</label>
 				<select
 					id="proj-cat-{id}"
-					class="field h-10"
+					class="field h-[40px]"
 					value={project.category_id ?? ''}
 					onchange={(e) => {
 						const v = e.currentTarget.value;
@@ -196,7 +221,7 @@
 				<button
 					type="button"
 					aria-pressed={project.pinned}
-					disabled={!cat || project.status === 'complete'}
+					disabled={!cat || project.status === 'complete' || archived}
 					title={pinHint}
 					class="flex h-[30px] items-center gap-2 rounded-[3px] border px-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50 {project.pinned
 						? 'border-amber-edge bg-amber-deep text-amber'
@@ -307,6 +332,26 @@
 					oninput={() => saver.queue({ notes })}
 					onblur={saver.flush}
 				></textarea>
+
+				{#if pace}
+					<div class="mt-2 flex shrink-0 flex-col gap-1.5" role="group" aria-labelledby="proj-pace-{id}">
+						<span id="proj-pace-{id}" class="label">completions · last 6 weeks</span>
+						<div class="flex h-11 items-end gap-1 border-b border-line">
+							{#each pace.weeks as w, i (w.to)}
+								<span
+									class="grow {i === pace.weeks.length - 1 ? 'bg-green' : 'bg-heat-2'}"
+									style:height="{(w.count / paceMax) * 100}%"
+									title="{short(w.from)}–{short(w.to)} · {w.count} completed"
+								><span class="sr-only">{short(w.from)} to {short(w.to)}: {w.count} completed</span></span>
+							{/each}
+						</div>
+						<span
+							class="text-xs {pace.onTrack === false ? 'text-amber' : 'text-muted'}"
+							title={pace.estimate ? `estimated done ${pace.estimate} at this pace` : undefined}
+							>{pace.summary}</span
+						>
+					</div>
+				{/if}
 			</div>
 		</div>
 
@@ -321,6 +366,12 @@
 				{:else}
 					<button type="button" class="btn btn-danger" onclick={() => (confirmDelete = true)}
 						>delete project</button
+					>
+					<button
+						type="button"
+						class="btn"
+						title={archived ? 'show it and its open tasks on the dashboard again' : 'hide it and its open tasks from the dashboard'}
+						onclick={() => saver.save({ archived: !archived })}>{archived ? 'unarchive' : 'archive'}</button
 					>
 				{/if}
 			</div>

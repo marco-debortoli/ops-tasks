@@ -122,6 +122,14 @@ export function subtaskBar(done: number, total: number): string {
 	return '▰'.repeat(filled) + '▱'.repeat(width - filled) + ` ${done}/${total}`;
 }
 
+/** Change against a previous count: `+2` (up), `−4` (down) or `±0`. */
+export function change(n: number, prev: number): { text: string; color: string } {
+	const d = n - prev;
+	if (d > 0) return { text: `+${d}`, color: 'var(--color-green)' };
+	if (d < 0) return { text: `−${-d}`, color: 'var(--color-red)' };
+	return { text: '±0', color: 'var(--color-dim)' };
+}
+
 export function percent(done: number, total: number): number {
 	return total ? Math.round((done / total) * 100) : 0;
 }

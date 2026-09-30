@@ -100,7 +100,7 @@
 		{ value: null, label: 'none', on: 'bg-line text-bright' }
 	];
 
-	// The project picker lists unfinished projects, plus the current one if it's complete.
+	// The project picker lists active projects, plus the current one if it's complete or archived.
 	const projectOptions = $derived.by(() => {
 		if (!task?.project_id || projects.some((p) => p.id === task!.project_id)) return projects;
 		return [...projects, { id: task.project_id, name: task.project_name ?? '?' } as Project];

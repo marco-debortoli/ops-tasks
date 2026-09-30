@@ -56,6 +56,8 @@ export interface Project {
 	due_date: string | null;
 	notes: string;
 	pinned: boolean;
+	/** Archived projects, and their open tasks, are hidden from the dashboard. */
+	archived_at: string | null;
 	open_count: number;
 	done_count: number;
 	next_task: TaskRef | null;
@@ -77,6 +79,10 @@ export interface Stats {
 	week: number;
 	month: number;
 	year: number;
+	/** The same stretch of the previous week, month and year. */
+	prev_week: number;
+	prev_month: number;
+	prev_year: number;
 	streak: number;
 	heatmap: DayCount[];
 	by_category: { category_id: number | null; count: number }[];
@@ -126,4 +132,5 @@ export type ProjectPatch = Partial<{
 	due_date: string | null;
 	notes: string;
 	pinned: boolean;
+	archived: boolean;
 }>;

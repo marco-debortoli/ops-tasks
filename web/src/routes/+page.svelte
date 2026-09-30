@@ -14,6 +14,7 @@
 	import StatusBar from '$lib/components/StatusBar.svelte';
 	import TaskModal from '$lib/components/TaskModal.svelte';
 	import TodayPanel from '$lib/components/TodayPanel.svelte';
+	import WeekPanel from '$lib/components/WeekPanel.svelte';
 	import { desktop } from '$lib/media.svelte';
 	import { app, closeModal, refresh } from '$lib/state.svelte';
 
@@ -39,6 +40,7 @@
 			<TodayPanel />
 			<div class="flex min-h-0 flex-col gap-[18px]">
 				<PinnedPanel />
+				<WeekPanel />
 				<QueuePanel />
 			</div>
 			<div class="flex min-h-0 flex-col gap-[18px]">

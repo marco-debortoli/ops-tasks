@@ -28,9 +28,13 @@ type CategoryCount struct {
 }
 
 type Stats struct {
-	Week       int             `json:"week"`
-	Month      int             `json:"month"`
-	Year       int             `json:"year"`
+	Week  int `json:"week"`
+	Month int `json:"month"`
+	Year  int `json:"year"`
+	// The same stretch of the previous week, month and year, for the up/down changes.
+	PrevWeek   int             `json:"prev_week"`
+	PrevMonth  int             `json:"prev_month"`
+	PrevYear   int             `json:"prev_year"`
 	Streak     int             `json:"streak"`
 	Heatmap    []HeatDay       `json:"heatmap"`
 	ByCategory []CategoryCount `json:"by_category"`
@@ -79,6 +83,28 @@ func HeatmapStart(today time.Time) time.Time {
 	return WeekStart(today).AddDate(0, 0, -7*(HeatmapWeeks-1))
 }
 
+// DateRange is an inclusive span of days.
+type DateRange struct{ From, To time.Time }
+
+// PreviousPeriods returns the stretches of last week, last month and last year that
+// match how far today is into the current one: Monday to the same weekday last week,
+// the 1st to the same day last month (or its last day, if shorter), and Jan 1 to the
+// same date last year.
+func PreviousPeriods(today time.Time) (week, month, year DateRange) {
+	ws := WeekStart(today)
+	week = DateRange{ws.AddDate(0, 0, -7), today.AddDate(0, 0, -7)}
+
+	ms := time.Date(today.Year(), today.Month()-1, 1, 0, 0, 0, 0, time.UTC)
+	lastDay := ms.AddDate(0, 1, -1).Day()
+	month = DateRange{ms, ms.AddDate(0, 0, min(today.Day(), lastDay)-1)}
+
+	ys := time.Date(today.Year()-1, 1, 1, 0, 0, 0, 0, time.UTC)
+	yEnd := time.Date(today.Year()-1, today.Month(), 1, 0, 0, 0, 0, time.UTC)
+	yLast := yEnd.AddDate(0, 1, -1).Day()
+	year = DateRange{ys, yEnd.AddDate(0, 0, min(today.Day(), yLast)-1)}
+	return week, month, year
+}
+
 // Streak counts consecutive days with at least one completion, ending today, or
 // yesterday when nothing has been completed yet today. days must be sorted newest first.
 func Streak(days []string, today time.Time) int {
@@ -111,7 +137,8 @@ func (s *Store) Dashboard(ctx context.Context, today string) (*Dashboard, error)
 	if d.Categories == nil {
 		d.Categories = []Category{}
 	}
-	open, err := s.queryTasks(ctx, ` WHERE t.completed_on IS NULL`+openOrder)
+	// An archived project's open tasks are shelved with it.
+	open, err := s.queryTasks(ctx, ` WHERE t.completed_on IS NULL AND p.archived_at IS NULL`+openOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +146,7 @@ func (s *Store) Dashboard(ctx context.Context, today string) (*Dashboard, error)
 	if d.TodayTasks.Completed, err = s.queryTasks(ctx, ` WHERE t.completed_on = $1::date ORDER BY t.completed_at DESC`, today); err != nil {
 		return nil, err
 	}
-	if d.Projects, err = s.ListProjects(ctx, false); err != nil {
+	if d.Projects, err = s.ListProjects(ctx, ProjectsActive); err != nil {
 		return nil, err
 	}
 	if d.Stats, err = s.stats(ctx, day); err != nil {
@@ -135,12 +162,20 @@ func (s *Store) stats(ctx context.Context, today time.Time) (Stats, error) {
 	monthStart := time.Date(today.Year(), today.Month(), 1, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
 	yearStart := time.Date(today.Year(), 1, 1, 0, 0, 0, 0, time.UTC).Format(time.DateOnly)
 
+	pw, pm, py := PreviousPeriods(today)
+	d := func(t time.Time) string { return t.Format(time.DateOnly) }
+
 	err := s.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE completed_on >= $1::date),
 		       count(*) FILTER (WHERE completed_on >= $2::date),
-		       count(*)
-		FROM tasks WHERE completed_on BETWEEN $3::date AND $4::date`,
-		weekStart, monthStart, yearStart, todayS).Scan(&st.Week, &st.Month, &st.Year)
+		       count(*) FILTER (WHERE completed_on >= $3::date),
+		       count(*) FILTER (WHERE completed_on BETWEEN $5::date AND $6::date),
+		       count(*) FILTER (WHERE completed_on BETWEEN $7::date AND $8::date),
+		       count(*) FILTER (WHERE completed_on BETWEEN $9::date AND $10::date)
+		FROM tasks WHERE completed_on BETWEEN $9::date AND $4::date`,
+		weekStart, monthStart, yearStart, todayS,
+		d(pw.From), d(pw.To), d(pm.From), d(pm.To), d(py.From), d(py.To)).
+		Scan(&st.Week, &st.Month, &st.Year, &st.PrevWeek, &st.PrevMonth, &st.PrevYear)
 	if err != nil {
 		return st, err
 	}
